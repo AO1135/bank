@@ -139,11 +139,23 @@ function renderHome() {
       });
   }
 
-  // 口座・財布ごとの残高（入金 − 出金、記録された分のみ）
+  // 口座・財布ごとの残高（入金 − 出金）
+  // ベースは「登録されているすべての出金元 / 入金先」
+  const sources = getSources(); // 設定画面で登録されている一覧
   const balanceBySource = {};
+
+  // まず全て 0 で初期化
+  sources.forEach(name => {
+    balanceBySource[name] = 0;
+  });
+
+  // 今月の取引から残高を計算（入金 − 出金）
   txs.forEach(tx => {
     const key = tx.source;
-    if (!balanceBySource[key]) balanceBySource[key] = 0;
+    // もし sources にない名前が取引に登場しても、一応計算対象に入れる
+    if (!(key in balanceBySource)) {
+      balanceBySource[key] = 0;
+    }
     if (tx.type === "income") {
       balanceBySource[key] += Number(tx.amount);
     } else if (tx.type === "expense") {
@@ -153,12 +165,13 @@ function renderHome() {
 
   const sbEl = document.getElementById("source-balance-list");
   sbEl.innerHTML = "";
+
   const entries = Object.entries(balanceBySource);
   if (entries.length === 0) {
     sbEl.innerHTML = '<div class="empty-msg">残高を計算できるデータがありません</div>';
   } else {
     entries
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => a[0].localeCompare(b[0])) // 名前順
       .forEach(([name, amt]) => {
         const sign = amt > 0 ? "+" : amt < 0 ? "-" : "";
         const formatted = Math.abs(amt).toLocaleString("ja-JP") + "円";
@@ -172,6 +185,7 @@ function renderHome() {
           </div>`;
       });
   }
+
 
   // 最近の取引（最新5件）
   const recent = [...txs]
