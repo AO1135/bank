@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#4CAF50">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="家計簿">
@@ -13,6 +13,7 @@
 </head>
 <body>
   <div id="app">
+    <!-- ヘッダー -->
     <header>
       <h1>家計簿</h1>
       <div id="month-selector">
@@ -21,6 +22,8 @@
         <button id="next-month">&gt;</button>
       </div>
     </header>
+
+    <!-- ナビゲーション -->
     <nav>
       <button class="nav-btn active" data-page="home">ホーム</button>
       <button class="nav-btn" data-page="expense">出金</button>
@@ -28,6 +31,8 @@
       <button class="nav-btn" data-page="history">履歴</button>
       <button class="nav-btn" data-page="settings">設定</button>
     </nav>
+
+    <!-- ホーム画面 -->
     <div id="page-home" class="page active">
       <div class="summary-cards">
         <div class="card income-card">
@@ -43,11 +48,18 @@
           <div class="card-amount" id="total-balance">0円</div>
         </div>
       </div>
-      <div class="section-title">出金元別 内訳</div>
+
+      <div class="section-title">📊 出金元別 内訳</div>
       <div id="source-breakdown"></div>
-      <div class="section-title">最近の取引</div>
+
+      <div class="section-title">💼 口座・財布の残高</div>
+      <div id="source-balance-list"></div>
+
+      <div class="section-title">📝 最近の取引</div>
       <div id="recent-transactions"></div>
     </div>
+
+    <!-- 出金画面 -->
     <div id="page-expense" class="page">
       <div class="form-card">
         <h2>出金を記録</h2>
@@ -74,6 +86,8 @@
         <button class="btn-primary" id="save-expense">記録する</button>
       </div>
     </div>
+
+    <!-- 入金画面 -->
     <div id="page-income" class="page">
       <div class="form-card">
         <h2>入金を記録</h2>
@@ -100,6 +114,8 @@
         <button class="btn-primary" id="save-income">記録する</button>
       </div>
     </div>
+
+    <!-- 履歴画面 -->
     <div id="page-history" class="page">
       <div class="filter-bar">
         <button class="filter-btn active" data-filter="all">すべて</button>
@@ -108,6 +124,8 @@
       </div>
       <div id="history-list"></div>
     </div>
+
+    <!-- 設定画面 -->
     <div id="page-settings" class="page">
       <div class="form-card">
         <h2>出金元・入金先の管理</h2>
@@ -120,6 +138,7 @@
         </div>
         <div id="source-list"></div>
       </div>
+
       <div class="form-card" style="margin-top:16px;">
         <h2>データ管理</h2>
         <button class="btn-danger" id="clear-month-data">今月のデータを削除</button>
@@ -127,16 +146,20 @@
       </div>
     </div>
   </div>
+
+  <!-- トースト通知 -->
   <div id="toast"></div>
+
+  <!-- Service Worker 登録 -->
   <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("SW registered"))
-        .catch(e => console.log("SW error", e));
-    });
-  }
-</script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(() => console.log("SW registered"))
+          .catch(e => console.log("SW error", e));
+      });
+    }
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
