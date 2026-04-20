@@ -25,7 +25,7 @@ function formatMoney(n) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
+  if (isNaN(d.getTime())) return dateStr || "";
   return (d.getMonth() + 1) + "/" + d.getDate();
 }
 
@@ -65,11 +65,13 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("page-" + btn.dataset.page).classList.add("active");
+
     if (btn.dataset.page === "home") renderHome();
     if (btn.dataset.page === "history") renderHistory();
     if (btn.dataset.page === "settings") renderSettings();
-    if (btn.dataset.page === "expense") populateSourceSelect();
-    if (btn.dataset.page === "income") populateSourceSelect();
+    if (btn.dataset.page === "expense" || btn.dataset.page === "income") {
+      populateSourceSelect();
+    }
   });
 });
 
@@ -100,8 +102,10 @@ function populateSourceSelect() {
 
 // ==================== ホーム画面 ====================
 function renderHome() {
-  const txs = getTransactions().filter(tx => tx.monthKey === getMonthKey());
+  const allTxs = getTransactions();
+  const txs = allTxs.filter(tx => tx.monthKey === getMonthKey());
 
+  // 合計の計算
   const totalIncome = txs
     .filter(t => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -123,6 +127,7 @@ function renderHome() {
     .forEach(t => {
       breakdown[t.source] = (breakdown[t.source] || 0) + Number(t.amount);
     });
+
   const bdEl = document.getElementById("source-breakdown");
   bdEl.innerHTML = "";
   if (Object.keys(breakdown).length === 0) {
@@ -139,9 +144,9 @@ function renderHome() {
       });
   }
 
-  // 口座・財布ごとの残高（入金 − 出金）
-  // ベースは「登録されているすべての出金元 / 入金先」
-  const sources = getSources(); // 設定画面で登録されている一覧
+  // 口座・財布ごとの残高（今月分の 入金 − 出金）
+  // ベースは「設定に登録してある全ての口座」
+  const sources = getSources();
   const balanceBySource = {};
 
   // まず全て 0 で初期化
@@ -149,12 +154,11 @@ function renderHome() {
     balanceBySource[name] = 0;
   });
 
-  // 今月の取引から残高を計算（入金 − 出金）
+  // 今月の取引から計算
   txs.forEach(tx => {
-    const key = tx.source;
-    // もし sources にない名前が取引に登場しても、一応計算対象に入れる
+    const key = tx.source; // 出金元 / 入金先として扱う名前
     if (!(key in balanceBySource)) {
-      balanceBySource[key] = 0;
+      balanceBySource[key] = 0; // 想定外の名前も一応追加
     }
     if (tx.type === "income") {
       balanceBySource[key] += Number(tx.amount);
@@ -165,8 +169,8 @@ function renderHome() {
 
   const sbEl = document.getElementById("source-balance-list");
   sbEl.innerHTML = "";
-
   const entries = Object.entries(balanceBySource);
+
   if (entries.length === 0) {
     sbEl.innerHTML = '<div class="empty-msg">残高を計算できるデータがありません</div>';
   } else {
@@ -185,7 +189,6 @@ function renderHome() {
           </div>`;
       });
   }
-
 
   // 最近の取引（最新5件）
   const recent = [...txs]
@@ -270,9 +273,9 @@ document.getElementById("save-expense").addEventListener("click", () => {
 
 // ==================== 入金保存 ====================
 document.getElementById("save-income").addEventListener("click", () => {
-  const destination = document.getElementById("income-destination").value;
+  const destination = document.getElementById("income-destination").value; // どの口座に入ったか
   const amount = document.getElementById("income-amount").value;
-  const source = document.getElementById("income-source").value.trim();
+  const source = document.getElementById("income-source").value.trim();   // 収入元（バイト名など）
   const memo = document.getElementById("income-memo").value.trim();
   const date = document.getElementById("income-date").value;
 
@@ -287,8 +290,8 @@ document.getElementById("save-income").addEventListener("click", () => {
   txs.push({
     id: Date.now(),
     type: "income",
-    source: destination,  // ここが「残高の口座名」になる
-    place: source,        // ここに「バイト名」などが入る
+    source: destination, // ← 残高の口座名として扱う
+    place: source,       // ← 収入元の名前（表示用）
     amount: Number(amount),
     memo,
     date,
