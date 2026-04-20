@@ -25,6 +25,7 @@ function formatMoney(n) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
   return (d.getMonth() + 1) + "/" + d.getDate();
 }
 
@@ -101,8 +102,12 @@ function populateSourceSelect() {
 function renderHome() {
   const txs = getTransactions().filter(tx => tx.monthKey === getMonthKey());
 
-  const totalIncome = txs.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpense = txs.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const totalIncome = txs
+    .filter(t => t.type === "income")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalExpense = txs
+    .filter(t => t.type === "expense")
+    .reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
   document.getElementById("total-income").textContent = "+" + formatMoney(totalIncome);
@@ -111,27 +116,67 @@ function renderHome() {
   balEl.textContent = (balance >= 0 ? "+" : "") + formatMoney(balance);
   balEl.className = "card-amount" + (balance < 0 ? " negative" : "");
 
-  // 出金元別内訳
+  // 出金元別内訳（出金のみ）
   const breakdown = {};
-  txs.filter(t => t.type === "expense").forEach(t => {
-    breakdown[t.source] = (breakdown[t.source] || 0) + Number(t.amount);
-  });
+  txs
+    .filter(t => t.type === "expense")
+    .forEach(t => {
+      breakdown[t.source] = (breakdown[t.source] || 0) + Number(t.amount);
+    });
   const bdEl = document.getElementById("source-breakdown");
   bdEl.innerHTML = "";
   if (Object.keys(breakdown).length === 0) {
     bdEl.innerHTML = '<div class="empty-msg">出金記録がありません</div>';
   } else {
-    Object.entries(breakdown).sort((a, b) => b[1] - a[1]).forEach(([name, amt]) => {
-      bdEl.innerHTML += `
-        <div class="breakdown-item">
-          <span class="breakdown-name">${name}</span>
-          <span class="breakdown-amount">-${formatMoney(amt)}</span>
-        </div>`;
-    });
+    Object.entries(breakdown)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([name, amt]) => {
+        bdEl.innerHTML += `
+          <div class="breakdown-item">
+            <span class="breakdown-name">${name}</span>
+            <span class="breakdown-amount">-${formatMoney(amt)}</span>
+          </div>`;
+      });
+  }
+
+  // 口座・財布ごとの残高（入金 − 出金、記録された分のみ）
+  const balanceBySource = {};
+  txs.forEach(tx => {
+    const key = tx.source;
+    if (!balanceBySource[key]) balanceBySource[key] = 0;
+    if (tx.type === "income") {
+      balanceBySource[key] += Number(tx.amount);
+    } else if (tx.type === "expense") {
+      balanceBySource[key] -= Number(tx.amount);
+    }
+  });
+
+  const sbEl = document.getElementById("source-balance-list");
+  sbEl.innerHTML = "";
+  const entries = Object.entries(balanceBySource);
+  if (entries.length === 0) {
+    sbEl.innerHTML = '<div class="empty-msg">残高を計算できるデータがありません</div>';
+  } else {
+    entries
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .forEach(([name, amt]) => {
+        const sign = amt > 0 ? "+" : amt < 0 ? "-" : "";
+        const formatted = Math.abs(amt).toLocaleString("ja-JP") + "円";
+        const color = amt < 0 ? "#b05050" : "#4a7c59";
+        sbEl.innerHTML += `
+          <div class="breakdown-item">
+            <span class="breakdown-name">${name}</span>
+            <span class="breakdown-amount" style="color:${color}">
+              ${sign}${formatted}
+            </span>
+          </div>`;
+      });
   }
 
   // 最近の取引（最新5件）
-  const recent = [...txs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+  const recent = [...txs]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
   const rtEl = document.getElementById("recent-transactions");
   rtEl.innerHTML = "";
   if (recent.length === 0) {
@@ -143,10 +188,15 @@ function renderHome() {
         <div class="transaction-item">
           <div class="transaction-left">
             <div class="t-place">${tx.place || tx.source}</div>
-            <div class="t-meta">${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}${tx.memo ? " / " + tx.memo : ""}</div>
+            <div class="t-meta">
+              ${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}
+              ${tx.memo ? " / " + tx.memo : ""}
+            </div>
           </div>
           <div class="transaction-right">
-            <div class="t-amount ${isIncome ? "income" : "expense"}">${isIncome ? "+" : "-"}${formatMoney(tx.amount)}</div>
+            <div class="t-amount ${isIncome ? "income" : "expense"}">
+              ${isIncome ? "+" : "-"}${formatMoney(tx.amount)}
+            </div>
             <div class="t-date">${formatDate(tx.date)}</div>
           </div>
         </div>`;
@@ -154,15 +204,20 @@ function renderHome() {
   }
 }
 
-// ==================== 出金保存 ====================
+// ==================== 日付の初期値 ====================
 function todayStr() {
   const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  return (
+    d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
 }
 
 document.getElementById("expense-date").value = todayStr();
 document.getElementById("income-date").value = todayStr();
 
+// ==================== 出金保存 ====================
 document.getElementById("save-expense").addEventListener("click", () => {
   const source = document.getElementById("expense-source").value;
   const amount = document.getElementById("expense-amount").value;
@@ -175,10 +230,19 @@ document.getElementById("save-expense").addEventListener("click", () => {
   if (!date) { showToast("日付を選択してください"); return; }
 
   const d = new Date(date);
-  const monthKey = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+  const monthKey = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 
   const txs = getTransactions();
-  txs.push({ id: Date.now(), type: "expense", source, amount: Number(amount), place, memo, date, monthKey });
+  txs.push({
+    id: Date.now(),
+    type: "expense",
+    source,
+    amount: Number(amount),
+    place,
+    memo,
+    date,
+    monthKey
+  });
   saveTransactions(txs);
 
   document.getElementById("expense-amount").value = "";
@@ -203,10 +267,19 @@ document.getElementById("save-income").addEventListener("click", () => {
   if (!date) { showToast("日付を選択してください"); return; }
 
   const d = new Date(date);
-  const monthKey = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+  const monthKey = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 
   const txs = getTransactions();
-  txs.push({ id: Date.now(), type: "income", source: destination, place: source, amount: Number(amount), memo, date, monthKey });
+  txs.push({
+    id: Date.now(),
+    type: "income",
+    source: destination,  // ここが「残高の口座名」になる
+    place: source,        // ここに「バイト名」などが入る
+    amount: Number(amount),
+    memo,
+    date,
+    monthKey
+  });
   saveTransactions(txs);
 
   document.getElementById("income-amount").value = "";
@@ -249,10 +322,15 @@ function renderHistory() {
     div.innerHTML = `
       <div class="history-left">
         <div class="h-place">${tx.place}</div>
-        <div class="h-meta">${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}${tx.memo ? " / " + tx.memo : ""}</div>
+        <div class="h-meta">
+          ${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}
+          ${tx.memo ? " / " + tx.memo : ""}
+        </div>
       </div>
       <div class="history-right">
-        <div class="h-amount ${isIncome ? "income" : "expense"}">${isIncome ? "+" : "-"}${formatMoney(tx.amount)}</div>
+        <div class="h-amount ${isIncome ? "income" : "expense"}">
+          ${isIncome ? "+" : "-"}${formatMoney(tx.amount)}
+        </div>
         <div class="h-date">${formatDate(tx.date)}</div>
       </div>
       <button class="btn-delete-tx" data-id="${tx.id}">✕</button>`;
@@ -280,7 +358,9 @@ function renderSettings() {
   sources.forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "source-item";
-    div.innerHTML = `<span>${s}</span><button class="btn-remove" data-index="${i}">✕</button>`;
+    div.innerHTML = `
+      <span>${s}</span>
+      <button class="btn-remove" data-index="${i}">✕</button>`;
     el.appendChild(div);
   });
 
