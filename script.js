@@ -69,7 +69,7 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     if (btn.dataset.page === "home") renderHome();
     if (btn.dataset.page === "history") renderHistory();
     if (btn.dataset.page === "settings") renderSettings();
-    if (btn.dataset.page === "expense" || btn.dataset.page === "income") {
+    if (["expense", "income", "transfer"].includes(btn.dataset.page)) {
       populateSourceSelect();
     }
   });
@@ -88,7 +88,10 @@ function populateSourceSelect() {
   const sources = getSources();
   const expSel = document.getElementById("expense-source");
   const incSel = document.getElementById("income-destination");
-  [expSel, incSel].forEach(sel => {
+  const tfFrom = document.getElementById("transfer-from");
+  const tfTo   = document.getElementById("transfer-to");
+
+  [expSel, incSel, tfFrom, tfTo].forEach(sel => {
     if (!sel) return;
     sel.innerHTML = "";
     sources.forEach(s => {
@@ -105,7 +108,7 @@ function renderHome() {
   const allTxs = getTransactions();
   const txs = allTxs.filter(tx => tx.monthKey === getMonthKey());
 
-  // 合計の計算
+  // 合計の計算（振替は含めない）
   const totalIncome = txs
     .filter(t => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -144,26 +147,31 @@ function renderHome() {
       });
   }
 
-  // 口座・財布ごとの残高（今月分の 入金 − 出金）
-  // ベースは「設定に登録してある全ての口座」
+  // 口座・財布ごとの残高（今月分の 入金 − 出金 ± 振替）
   const sources = getSources();
   const balanceBySource = {};
 
-  // まず全て 0 で初期化
+  // 全口座を 0 で初期化
   sources.forEach(name => {
     balanceBySource[name] = 0;
   });
 
-  // 今月の取引から計算
   txs.forEach(tx => {
-    const key = tx.source; // 出金元 / 入金先として扱う名前
-    if (!(key in balanceBySource)) {
-      balanceBySource[key] = 0; // 想定外の名前も一応追加
-    }
     if (tx.type === "income") {
+      const key = tx.source; // 入金先
+      if (!(key in balanceBySource)) balanceBySource[key] = 0;
       balanceBySource[key] += Number(tx.amount);
     } else if (tx.type === "expense") {
+      const key = tx.source; // 出金元
+      if (!(key in balanceBySource)) balanceBySource[key] = 0;
       balanceBySource[key] -= Number(tx.amount);
+    } else if (tx.type === "transfer") {
+      const fromKey = tx.from;
+      const toKey   = tx.to;
+      if (!(fromKey in balanceBySource)) balanceBySource[fromKey] = 0;
+      if (!(toKey   in balanceBySource)) balanceBySource[toKey]   = 0;
+      balanceBySource[fromKey] -= Number(tx.amount);
+      balanceBySource[toKey]   += Number(tx.amount);
     }
   });
 
@@ -190,7 +198,7 @@ function renderHome() {
       });
   }
 
-  // 最近の取引（最新5件）
+  // 最近の取引（最新5件） — 入金/出金/振替すべて対象
   const recent = [...txs]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
@@ -200,20 +208,42 @@ function renderHome() {
     rtEl.innerHTML = '<div class="empty-msg">取引記録がありません</div>';
   } else {
     recent.forEach(tx => {
-      const isIncome = tx.type === "income";
+      let label = "";
+      let amountLabel = "";
+      let amountClass = "";
+      let placeText = "";
+      let metaText = "";
+
+      if (tx.type === "income") {
+        label = "入金";
+        amountLabel = "+" + formatMoney(tx.amount);
+        amountClass = "income";
+        placeText = tx.place || tx.source;
+        metaText = "入金先: " + tx.source;
+      } else if (tx.type === "expense") {
+        label = "出金";
+        amountLabel = "-" + formatMoney(tx.amount);
+        amountClass = "expense";
+        placeText = tx.place || tx.source;
+        metaText = "出金元: " + tx.source;
+      } else if (tx.type === "transfer") {
+        label = "振替";
+        amountLabel = formatMoney(tx.amount);
+        amountClass = "";
+        placeText = tx.from + " → " + tx.to;
+        metaText = "振替";
+      }
+
+      if (tx.memo) metaText += " / " + tx.memo;
+
       rtEl.innerHTML += `
         <div class="transaction-item">
           <div class="transaction-left">
-            <div class="t-place">${tx.place || tx.source}</div>
-            <div class="t-meta">
-              ${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}
-              ${tx.memo ? " / " + tx.memo : ""}
-            </div>
+            <div class="t-place">${placeText}</div>
+            <div class="t-meta">${label} / ${metaText}</div>
           </div>
           <div class="transaction-right">
-            <div class="t-amount ${isIncome ? "income" : "expense"}">
-              ${isIncome ? "+" : "-"}${formatMoney(tx.amount)}
-            </div>
+            <div class="t-amount ${amountClass}">${amountLabel}</div>
             <div class="t-date">${formatDate(tx.date)}</div>
           </div>
         </div>`;
@@ -233,6 +263,7 @@ function todayStr() {
 
 document.getElementById("expense-date").value = todayStr();
 document.getElementById("income-date").value = todayStr();
+document.getElementById("transfer-date").value = todayStr();
 
 // ==================== 出金保存 ====================
 document.getElementById("save-expense").addEventListener("click", () => {
@@ -242,6 +273,7 @@ document.getElementById("save-expense").addEventListener("click", () => {
   const memo = document.getElementById("expense-memo").value.trim();
   const date = document.getElementById("expense-date").value;
 
+  if (!source) { showToast("出金元を選択してください"); return; }
   if (!amount || Number(amount) <= 0) { showToast("金額を入力してください"); return; }
   if (!place) { showToast("使用場所を入力してください"); return; }
   if (!date) { showToast("日付を選択してください"); return; }
@@ -279,6 +311,7 @@ document.getElementById("save-income").addEventListener("click", () => {
   const memo = document.getElementById("income-memo").value.trim();
   const date = document.getElementById("income-date").value;
 
+  if (!destination) { showToast("入金先を選択してください"); return; }
   if (!amount || Number(amount) <= 0) { showToast("金額を入力してください"); return; }
   if (!source) { showToast("入金元を入力してください"); return; }
   if (!date) { showToast("日付を選択してください"); return; }
@@ -308,6 +341,44 @@ document.getElementById("save-income").addEventListener("click", () => {
   renderHome();
 });
 
+// ==================== 振替保存 ====================
+document.getElementById("save-transfer").addEventListener("click", () => {
+  const from = document.getElementById("transfer-from").value;
+  const to   = document.getElementById("transfer-to").value;
+  const amount = document.getElementById("transfer-amount").value;
+  const memo = document.getElementById("transfer-memo").value.trim();
+  const date = document.getElementById("transfer-date").value;
+
+  if (!from) { showToast("移動元を選択してください"); return; }
+  if (!to)   { showToast("移動先を選択してください"); return; }
+  if (from === to) { showToast("移動元と移動先が同じです"); return; }
+  if (!amount || Number(amount) <= 0) { showToast("金額を入力してください"); return; }
+  if (!date) { showToast("日付を選択してください"); return; }
+
+  const d = new Date(date);
+  const monthKey = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+
+  const txs = getTransactions();
+  txs.push({
+    id: Date.now(),
+    type: "transfer",
+    from,
+    to,
+    amount: Number(amount),
+    memo,
+    date,
+    monthKey
+  });
+  saveTransactions(txs);
+
+  document.getElementById("transfer-amount").value = "";
+  document.getElementById("transfer-memo").value = "";
+  document.getElementById("transfer-date").value = todayStr();
+
+  showToast("振替を記録しました！");
+  renderHome();
+});
+
 // ==================== 履歴 ====================
 let historyFilter = "all";
 
@@ -333,21 +404,37 @@ function renderHistory() {
   }
 
   txs.forEach(tx => {
-    const isIncome = tx.type === "income";
     const div = document.createElement("div");
     div.className = "history-item";
+    let title = "";
+    let meta = "";
+    let amount = "";
+    let amountClass = "";
+
+    if (tx.type === "income") {
+      title = tx.place || tx.source;
+      meta = "入金先: " + tx.source + (tx.memo ? " / " + tx.memo : "");
+      amount = "+" + formatMoney(tx.amount);
+      amountClass = "income";
+    } else if (tx.type === "expense") {
+      title = tx.place || tx.source;
+      meta = "出金元: " + tx.source + (tx.memo ? " / " + tx.memo : "");
+      amount = "-" + formatMoney(tx.amount);
+      amountClass = "expense";
+    } else if (tx.type === "transfer") {
+      title = tx.from + " → " + tx.to;
+      meta = "振替" + (tx.memo ? " / " + tx.memo : "");
+      amount = formatMoney(tx.amount);
+      amountClass = "";
+    }
+
     div.innerHTML = `
       <div class="history-left">
-        <div class="h-place">${tx.place}</div>
-        <div class="h-meta">
-          ${isIncome ? "入金先: " + tx.source : "出金元: " + tx.source}
-          ${tx.memo ? " / " + tx.memo : ""}
-        </div>
+        <div class="h-place">${title}</div>
+        <div class="h-meta">${meta}</div>
       </div>
       <div class="history-right">
-        <div class="h-amount ${isIncome ? "income" : "expense"}">
-          ${isIncome ? "+" : "-"}${formatMoney(tx.amount)}
-        </div>
+        <div class="h-amount ${amountClass}">${amount}</div>
         <div class="h-date">${formatDate(tx.date)}</div>
       </div>
       <button class="btn-delete-tx" data-id="${tx.id}">✕</button>`;
