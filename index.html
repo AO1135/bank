@@ -1,19 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="家計簿">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>家計簿アプリ</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
 </head>
 <body>
   <div id="app">
-    <!-- ヘッダー -->
     <header>
       <h1>家計簿</h1>
       <div id="month-selector">
@@ -23,134 +18,161 @@
       </div>
     </header>
 
-    <!-- ナビゲーション -->
     <nav>
       <button class="nav-btn active" data-page="home">ホーム</button>
       <button class="nav-btn" data-page="expense">出金</button>
       <button class="nav-btn" data-page="income">入金</button>
       <button class="nav-btn" data-page="transfer">振替</button>
+      <!-- ★ 新タブ：累積残高 -->
+      <button class="nav-btn" data-page="total-balance">累積残高</button>
       <button class="nav-btn" data-page="history">履歴</button>
       <button class="nav-btn" data-page="settings">設定</button>
     </nav>
 
-    <!-- ホーム画面 -->
+    <!-- ホーム（今月のサマリー） -->
     <div id="page-home" class="page active">
       <div class="summary-cards">
         <div class="card income-card">
-          <div class="card-label">入金合計</div>
-          <div class="card-amount" id="total-income">0円</div>
+          <div>
+            <div class="card-label">入金合計</div>
+            <div id="total-income" class="card-amount">+0円</div>
+          </div>
         </div>
+
         <div class="card expense-card">
-          <div class="card-label">出金合計</div>
-          <div class="card-amount" id="total-expense">0円</div>
+          <div>
+            <div class="card-label">出金合計</div>
+            <div id="total-expense" class="card-amount">-0円</div>
+          </div>
         </div>
+
         <div class="card balance-card">
-          <div class="card-label">差額（残高）</div>
-          <div class="card-amount" id="total-balance">0円</div>
+          <div>
+            <div class="card-label">差額（残高）</div>
+            <div id="total-balance" class="card-amount">+0円</div>
+          </div>
         </div>
       </div>
 
-      <div class="section-title">📊 出金元別 内訳</div>
+      <h2 class="section-title">📊 出金元別 内訳</h2>
       <div id="source-breakdown"></div>
 
-      <div class="section-title">💼 口座・財布の残高</div>
+      <h2 class="section-title">💼 口座・財布の残高（今月分）</h2>
       <div id="source-balance-list"></div>
 
-      <div class="section-title">📝 最近の取引</div>
+      <h2 class="section-title">📝 最近の取引</h2>
       <div id="recent-transactions"></div>
     </div>
 
-    <!-- 出金画面 -->
+    <!-- 出金入力 -->
     <div id="page-expense" class="page">
       <div class="form-card">
         <h2>出金を記録</h2>
+
         <div class="form-group">
-          <label>出金元</label>
+          <label for="expense-source">出金元</label>
           <select id="expense-source"></select>
         </div>
+
         <div class="form-group">
-          <label>金額</label>
-          <input type="number" id="expense-amount" placeholder="例：1500" min="0">
+          <label for="expense-amount">金額</label>
+          <input id="expense-amount" type="number" inputmode="numeric" />
         </div>
+
         <div class="form-group">
-          <label>使用場所</label>
-          <input type="text" id="expense-place" placeholder="例：コンビニ、Amazon">
+          <label for="expense-place">使用場所</label>
+          <input id="expense-place" type="text" />
         </div>
+
         <div class="form-group">
-          <label>メモ（任意）</label>
-          <input type="text" id="expense-memo" placeholder="例：昼食代">
+          <label for="expense-memo">メモ（任意）</label>
+          <input id="expense-memo" type="text" />
         </div>
+
         <div class="form-group">
-          <label>日付</label>
-          <input type="date" id="expense-date">
+          <label for="expense-date">日付</label>
+          <input id="expense-date" type="date" />
         </div>
-        <button class="btn-primary" id="save-expense">記録する</button>
+
+        <button id="save-expense" class="btn-primary">記録する</button>
       </div>
     </div>
 
-    <!-- 入金画面 -->
+    <!-- 入金入力 -->
     <div id="page-income" class="page">
       <div class="form-card">
         <h2>入金を記録</h2>
+
         <div class="form-group">
-          <label>入金先</label>
+          <label for="income-destination">入金先</label>
           <select id="income-destination"></select>
         </div>
+
         <div class="form-group">
-          <label>金額</label>
-          <input type="number" id="income-amount" placeholder="例：50000" min="0">
+          <label for="income-amount">金額</label>
+          <input id="income-amount" type="number" inputmode="numeric" />
         </div>
+
         <div class="form-group">
-          <label>入金元（収入源）</label>
-          <input type="text" id="income-source" placeholder="例：バイト、給料">
+          <label for="income-source">入金元（収入源）</label>
+          <input id="income-source" type="text" />
         </div>
+
         <div class="form-group">
-          <label>メモ（任意）</label>
-          <input type="text" id="income-memo" placeholder="例：10月分バイト代">
+          <label for="income-memo">メモ（任意）</label>
+          <input id="income-memo" type="text" />
         </div>
+
         <div class="form-group">
-          <label>日付</label>
-          <input type="date" id="income-date">
+          <label for="income-date">日付</label>
+          <input id="income-date" type="date" />
         </div>
-        <button class="btn-primary" id="save-income">記録する</button>
+
+        <button id="save-income" class="btn-primary">記録する</button>
       </div>
     </div>
 
-    <!-- 振替画面 -->
+    <!-- 振替入力 -->
     <div id="page-transfer" class="page">
       <div class="form-card">
         <h2>口座・財布間の振替</h2>
 
         <div class="form-group">
-          <label>移動元（どこから出すか）</label>
+          <label for="transfer-from">移動元（どこから出すか）</label>
           <select id="transfer-from"></select>
         </div>
 
         <div class="form-group">
-          <label>移動先（どこへ入れるか）</label>
+          <label for="transfer-to">移動先（どこへ入れるか）</label>
           <select id="transfer-to"></select>
         </div>
 
         <div class="form-group">
-          <label>金額</label>
-          <input type="number" id="transfer-amount" placeholder="例：10000" min="0">
+          <label for="transfer-amount">金額</label>
+          <input id="transfer-amount" type="number" inputmode="numeric" />
         </div>
 
         <div class="form-group">
-          <label>メモ（任意）</label>
-          <input type="text" id="transfer-memo" placeholder="例：生活費として移動">
+          <label for="transfer-memo">メモ（任意）</label>
+          <input id="transfer-memo" type="text" />
         </div>
 
         <div class="form-group">
-          <label>日付</label>
-          <input type="date" id="transfer-date">
+          <label for="transfer-date">日付</label>
+          <input id="transfer-date" type="date" />
         </div>
 
-        <button class="btn-primary" id="save-transfer">振替を記録</button>
+        <button id="save-transfer" class="btn-primary">振替を記録</button>
       </div>
     </div>
 
-    <!-- 履歴画面 -->
+    <!-- ★ 新ページ：累積残高 -->
+    <div id="page-total-balance" class="page">
+      <h2 class="section-title">💼 口座・財布の累積残高</h2>
+      <div id="total-balance-list"></div>
+    </div>
+
+    <!-- 履歴 -->
     <div id="page-history" class="page">
       <div class="filter-bar">
         <button class="filter-btn active" data-filter="all">すべて</button>
@@ -161,41 +183,42 @@
       <div id="history-list"></div>
     </div>
 
-    <!-- 設定画面 -->
+    <!-- 設定 -->
     <div id="page-settings" class="page">
       <div class="form-card">
         <h2>出金元・入金先の管理</h2>
+
         <div class="form-group">
-          <label>新しい出金元 / 入金先を追加</label>
+          <label for="new-source-name">新しい出金元 / 入金先を追加</label>
           <div class="input-row">
-            <input type="text" id="new-source-name" placeholder="例：PayPay、銀行A">
-            <button class="btn-add" id="add-source">追加</button>
+            <input id="new-source-name" type="text" />
+            <button id="add-source" class="btn-add">追加</button>
           </div>
         </div>
+
         <div id="source-list"></div>
       </div>
 
       <div class="form-card" style="margin-top:16px;">
         <h2>データ管理</h2>
-        <button class="btn-danger" id="clear-month-data">今月のデータを削除</button>
-        <button class="btn-danger" id="clear-all-data" style="margin-top:8px;">全データを削除</button>
+        <button id="clear-month-data" class="btn-danger">今月のデータを削除</button>
+        <button id="clear-all-data" class="btn-danger" style="margin-top:8px;">全データを削除</button>
       </div>
     </div>
   </div>
 
-  <!-- トースト通知 -->
   <div id="toast"></div>
 
-  <!-- Service Worker 登録 -->
+  <script src="script.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js")
+        navigator.serviceWorker
+          .register("./service-worker.js")
           .then(() => console.log("SW registered"))
           .catch(e => console.log("SW error", e));
       });
     }
   </script>
-  <script src="script.js"></script>
 </body>
 </html>
