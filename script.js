@@ -69,6 +69,9 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     if (btn.dataset.page === "home") renderHome();
     if (btn.dataset.page === "history") renderHistory();
     if (btn.dataset.page === "settings") renderSettings();
+    // ★ 累積残高ページの描画
+    if (btn.dataset.page === "total-balance") renderTotalBalancePage();
+
     if (["expense", "income", "transfer"].includes(btn.dataset.page)) {
       populateSourceSelect();
     }
@@ -249,6 +252,66 @@ function renderHome() {
         </div>`;
     });
   }
+}
+
+// ==================== 累積残高ページ ====================
+// 口座・財布ごとの「全期間」の残高を表示する
+function renderTotalBalancePage() {
+  const sources = getSources();
+  const allTxs = getTransactions(); // 全期間
+
+  const balanceBySource = {};
+
+  // 全口座を 0 で初期化
+  sources.forEach(name => {
+    balanceBySource[name] = 0;
+  });
+
+  // 全期間の取引を反映
+  allTxs.forEach(tx => {
+    if (tx.type === "income") {
+      const key = tx.source; // 入金先
+      if (!(key in balanceBySource)) balanceBySource[key] = 0;
+      balanceBySource[key] += Number(tx.amount);
+    } else if (tx.type === "expense") {
+      const key = tx.source; // 出金元
+      if (!(key in balanceBySource)) balanceBySource[key] = 0;
+      balanceBySource[key] -= Number(tx.amount);
+    } else if (tx.type === "transfer") {
+      const fromKey = tx.from;
+      const toKey   = tx.to;
+      if (!(fromKey in balanceBySource)) balanceBySource[fromKey] = 0;
+      if (!(toKey   in balanceBySource)) balanceBySource[toKey]   = 0;
+      balanceBySource[fromKey] -= Number(tx.amount);
+      balanceBySource[toKey]   += Number(tx.amount);
+    }
+  });
+
+  const el = document.getElementById("total-balance-list");
+  el.innerHTML = "";
+
+  const entries = Object.entries(balanceBySource);
+
+  if (entries.length === 0) {
+    el.innerHTML = '<div class="empty-msg">残高を計算できるデータがありません</div>';
+    return;
+  }
+
+  entries
+    .sort((a, b) => a[0].localeCompare(b[0])) // 名前順
+    .forEach(([name, amt]) => {
+      const sign = amt > 0 ? "+" : amt < 0 ? "-" : "";
+      const formatted = Math.abs(amt).toLocaleString("ja-JP") + "円";
+      const color = amt < 0 ? "#b05050" : "#4a7c59";
+
+      el.innerHTML += `
+        <div class="breakdown-item">
+          <span class="breakdown-name">${name}</span>
+          <span class="breakdown-amount" style="color:${color}">
+            ${sign}${formatted}
+          </span>
+        </div>`;
+    });
 }
 
 // ==================== 日付の初期値 ====================
