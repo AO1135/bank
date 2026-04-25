@@ -255,7 +255,7 @@ function renderHome() {
 }
 
 // ==================== 累積残高ページ ====================
-// 口座・財布ごとの「全期間」の残高を表示する
+// 口座・財布ごとの「全期間」の残高＋総合計を表示する
 function renderTotalBalancePage() {
   const sources = getSources();
   const allTxs = getTransactions(); // 全期間
@@ -297,6 +297,7 @@ function renderTotalBalancePage() {
     return;
   }
 
+  // まず各口座の残高を表示
   entries
     .sort((a, b) => a[0].localeCompare(b[0])) // 名前順
     .forEach(([name, amt]) => {
@@ -312,6 +313,20 @@ function renderTotalBalancePage() {
           </span>
         </div>`;
     });
+
+  // ★ すべての口座・財布の合計金額（総残高）を計算して一番下に表示
+  const grandTotal = entries.reduce((sum, [, amt]) => sum + Number(amt), 0);
+  const grandSign = grandTotal > 0 ? "+" : grandTotal < 0 ? "-" : "";
+  const grandFormatted = Math.abs(grandTotal).toLocaleString("ja-JP") + "円";
+  const grandColor = grandTotal < 0 ? "#b05050" : "#3a5a8a";
+
+  el.innerHTML += `
+    <div class="breakdown-item" style="margin-top:12px; border-top:1px solid #ebebeb; padding-top:14px;">
+      <span class="breakdown-name" style="font-weight:700;">すべての合計</span>
+      <span class="breakdown-amount" style="color:${grandColor}; font-weight:700;">
+        ${grandSign}${grandFormatted}
+      </span>
+    </div>`;
 }
 
 // ==================== 日付の初期値 ====================
